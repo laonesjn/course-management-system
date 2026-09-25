@@ -765,7 +765,8 @@ textarea.input {
   resize: vertical;
 }
 
-.filter-bar {
+.filter-bar,
+.filter-bar-admin {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
@@ -1132,6 +1133,24 @@ textarea.input {
   letter-spacing: 0.5px;
 
   white-space: nowrap;
+}
+
+.table th.th-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s;
+}
+
+.table th.th-sortable:hover {
+  background-color: #f1f5f9;
+}
+
+.sort-indicator,
+.sortindicator {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--color-primary);
+  font-weight: bold;
 }
 
 .table tbody tr:hover {

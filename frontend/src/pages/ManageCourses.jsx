@@ -27,6 +27,53 @@ const EMPTY_COURSE = {
 const LEVEL_OPTIONS = ["Beginner", "Intermediate", "Advanced"];
 
 
+// Utility function to convert duration string into total days for numeric comparison
+function parseDurationToDays(duration) {
+  if (!duration) return 0;
+  const str = String(duration).trim().toLowerCase();
+  const match = str.match(/(\d+)\s*([a-z]+)?/);
+  if (!match) return 0;
+  const val = parseInt(match[1], 10);
+  if (isNaN(val)) return 0;
+  const unit = match[2] || "";
+  if (unit.startsWith("week")) return val * 7;
+  if (unit.startsWith("month")) return val * 30;
+  if (unit.startsWith("year")) return val * 365;
+  if (unit.startsWith("day")) return val;
+  return val;
+}
+
+
+// Utility function to match course IDs (raw, padded C001 format, or leading C)
+function matchesCourseId(courseId, term) {
+  if (!term || courseId === undefined || courseId === null) return false;
+  const cleanTerm = term.trim().toLowerCase();
+  const rawId = String(courseId).trim().toLowerCase();
+  const paddedId = `c${rawId.padStart(3, "0")}`;
+  const cId = `c${rawId}`;
+
+  return (
+    rawId === cleanTerm ||
+    paddedId === cleanTerm ||
+    cId === cleanTerm ||
+    rawId.includes(cleanTerm) ||
+    paddedId.includes(cleanTerm) ||
+    cId.includes(cleanTerm)
+  );
+}
+
+
+// Utility function to check search query match across Title, Category, and Course ID
+function matchesSearch(course, term) {
+  if (!term || !term.trim()) return true;
+  const cleanTerm = term.trim().toLowerCase();
+  const titleMatch = String(course.title ?? "").toLowerCase().includes(cleanTerm);
+  const categoryMatch = String(course.category ?? "").toLowerCase().includes(cleanTerm);
+  const idMatch = matchesCourseId(course.id, cleanTerm);
+  return titleMatch || categoryMatch || idMatch;
+}
+
+
 // Load the course list.
 async function fetchAllCourses() {
   const response = await api.get("/courses");
@@ -42,6 +89,13 @@ function ManageCourses() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Search, Filter, and Sort states (CR-003)
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedLevel, setSelectedLevel] = useState("All");
+  const [sortColumn, setSortColumn] = useState("");
+  const [sortDirection, setSortDirection] = useState("asc");
 
   // Form visibility + which course is being edited (null = adding new)
   const [showForm, setShowForm] = useState(false);
@@ -84,6 +138,116 @@ function ManageCourses() {
   // ---------- Reload the list after a create / update / delete ----------
   const refreshCourses = async () => {
     setCourses(await fetchAllCourses());
+  };
+
+
+  // ---------- Search, Filter, and Sort helpers (CR-003) ----------
+
+  const handleSort = (columnKey) => {
+    if (sortColumn === columnKey) {
+      setSortDirection((prevDirection) =>
+        prevDirection === "asc" ? "desc" : "asc"
+      );
+    } else {
+      setSortColumn(columnKey);
+      setSortDirection("asc");
+    }
+  };
+
+
+  const handleReset = () => {
+    setSearchTerm("");
+    setSelectedCategory("All");
+    setSelectedLevel("All");
+    setSortColumn("");
+    setSortDirection("asc");
+  };
+
+
+  // Dynamic categories list derived from loaded courses
+  const categories = [
+    "All",
+    ...new Set(courses.map((course) => course.category).filter(Boolean)),
+  ];
+
+
+  // Combined filtering pipeline
+  const filteredCourses = courses.filter((course) => {
+    const matchesQuery = matchesSearch(course, searchTerm);
+    const matchesCategory =
+      selectedCategory === "All" || course.category === selectedCategory;
+    const matchesLevel =
+      selectedLevel === "All" || course.level === selectedLevel;
+
+    return matchesQuery && matchesCategory && matchesLevel;
+  });
+
+
+  // Column sorting pipeline
+  const sortedCourses = [...filteredCourses].sort((a, b) => {
+    if (!sortColumn) return 0;
+
+    let comparison;
+
+    switch (sortColumn) {
+      case "id":
+        comparison = (Number(a.id) || 0) - (Number(b.id) || 0);
+        break;
+      case "title":
+        comparison = String(a.title ?? "")
+          .toLowerCase()
+          .localeCompare(String(b.title ?? "").toLowerCase());
+        break;
+      case "category":
+        comparison = String(a.category ?? "")
+          .toLowerCase()
+          .localeCompare(String(b.category ?? "").toLowerCase());
+        break;
+      case "level":
+        comparison = String(a.level ?? "")
+          .toLowerCase()
+          .localeCompare(String(b.level ?? "").toLowerCase());
+        break;
+      case "duration":
+        comparison =
+          parseDurationToDays(a.duration) - parseDurationToDays(b.duration);
+        break;
+      case "price":
+        comparison = (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0);
+        break;
+      default:
+        comparison = 0;
+    }
+
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
+
+
+  const renderSortableHeader = (columnKey, label) => {
+    const isSorted = sortColumn === columnKey;
+    const indicator = isSorted
+      ? sortDirection === "asc"
+        ? " ↑"
+        : " ↓"
+      : "";
+
+    return (
+      <th
+        key={columnKey}
+        className="th-sortable"
+        onClick={() => handleSort(columnKey)}
+        aria-sort={
+          isSorted
+            ? sortDirection === "asc"
+              ? "ascending"
+              : "descending"
+            : "none"
+        }
+      >
+        {label}
+        <span className="sort-indicator">{indicator}</span>
+      </th>
+    );
   };
 
 
@@ -217,7 +381,7 @@ function ManageCourses() {
 
       closeForm();
 
-      // Show fresh data from the backend
+      // Show fresh data from the backend while preserving search/filter/sort state
       await refreshCourses();
 
     } catch (error) {
@@ -514,6 +678,66 @@ function ManageCourses() {
           </div>
 
 
+          {/* ---------- Search & Filter Bar ---------- */}
+          {!loading && courses.length > 0 && (
+            <div className="filter-bar filter-bar-admin">
+
+              <div className="filter-field filter-search-field">
+                <label htmlFor="course-search">Search courses</label>
+                <input
+                  id="course-search"
+                  type="text"
+                  className="input"
+                  placeholder="Title, category, or course ID (e.g. C001)..."
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                />
+              </div>
+
+              <div className="filter-field">
+                <label htmlFor="course-category-filter">Category</label>
+                <select
+                  id="course-category-filter"
+                  className="input"
+                  value={selectedCategory}
+                  onChange={(event) => setSelectedCategory(event.target.value)}
+                >
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-field">
+                <label htmlFor="course-level-filter">Level</label>
+                <select
+                  id="course-level-filter"
+                  className="input"
+                  value={selectedLevel}
+                  onChange={(event) => setSelectedLevel(event.target.value)}
+                >
+                  {["All", ...LEVEL_OPTIONS].map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-outline-dark"
+                onClick={handleReset}
+              >
+                Reset Filters
+              </button>
+
+            </div>
+          )}
+
+
           {loading && <p className="loading">Loading courses...</p>}
 
 
@@ -526,86 +750,98 @@ function ManageCourses() {
 
           {!loading && courses.length > 0 && (
 
-            <div className="table-wrapper">
+            <>
+              <p className="result-count">
+                Showing {sortedCourses.length} of {courses.length} courses
+              </p>
 
-              <table className="table">
+              {sortedCourses.length === 0 ? (
+                <p className="empty">No courses found.</p>
+              ) : (
 
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Image</th>
-                    <th>Title</th>
-                    <th>Category</th>
-                    <th>Level</th>
-                    <th>Duration</th>
-                    <th>Price</th>
-                    <th className="table-actions-column">Actions</th>
-                  </tr>
-                </thead>
+                <div className="table-wrapper">
 
-                <tbody>
+                  <table className="table">
 
-                  {courses.map((course) => (
+                    <thead>
+                      <tr>
+                        {renderSortableHeader("id", "ID")}
+                        <th>Image</th>
+                        {renderSortableHeader("title", "Title")}
+                        {renderSortableHeader("category", "Category")}
+                        {renderSortableHeader("level", "Level")}
+                        {renderSortableHeader("duration", "Duration")}
+                        {renderSortableHeader("price", "Price")}
+                        <th className="table-actions-column">Actions</th>
+                      </tr>
+                    </thead>
 
-                    <tr key={course.id}>
+                    <tbody>
 
-                      <td>{course.id}</td>
+                      {sortedCourses.map((course) => (
 
-                      <td>
-                        <img
-                          src={course.image}
-                          alt={course.title}
-                          className="table-thumb"
-                        />
-                      </td>
+                        <tr key={course.id}>
 
-                      <td>{course.title}</td>
+                          <td>{course.id}</td>
 
-                      <td>{course.category}</td>
+                          <td>
+                            <img
+                              src={course.image}
+                              alt={course.title}
+                              className="table-thumb"
+                            />
+                          </td>
 
-                      <td>
-                        <span className="tag tag-level">
-                          {course.level}
-                        </span>
-                      </td>
+                          <td>{course.title}</td>
 
-                      <td>{course.duration}</td>
+                          <td>{course.category}</td>
 
-                      <td>Rs. {course.price}</td>
+                          <td>
+                            <span className="tag tag-level">
+                              {course.level}
+                            </span>
+                          </td>
 
-                      <td>
-                        <div className="table-actions">
+                          <td>{course.duration}</td>
 
-                          <button
-                            type="button"
-                            className="btn btn-small btn-outline"
-                            onClick={() => openEditForm(course)}
-                          >
-                            <FaEdit />
-                            Edit
-                          </button>
+                          <td>Rs. {course.price}</td>
 
-                          <button
-                            type="button"
-                            className="btn btn-small btn-danger"
-                            onClick={() => handleDelete(course)}
-                          >
-                            <FaTrash />
-                            Delete
-                          </button>
+                          <td>
+                            <div className="table-actions">
 
-                        </div>
-                      </td>
+                              <button
+                                type="button"
+                                className="btn btn-small btn-outline"
+                                onClick={() => openEditForm(course)}
+                              >
+                                <FaEdit />
+                                Edit
+                              </button>
 
-                    </tr>
+                              <button
+                                type="button"
+                                className="btn btn-small btn-danger"
+                                onClick={() => handleDelete(course)}
+                              >
+                                <FaTrash />
+                                Delete
+                              </button>
 
-                  ))}
+                            </div>
+                          </td>
 
-                </tbody>
+                        </tr>
 
-              </table>
+                      ))}
 
-            </div>
+                    </tbody>
+
+                  </table>
+
+                </div>
+
+              )}
+            </>
 
           )}
 
@@ -620,4 +856,3 @@ function ManageCourses() {
 }
 
 export default ManageCourses;
-
