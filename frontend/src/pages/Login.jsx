@@ -9,16 +9,21 @@ import Navbar from "../components/Navbar";
 
 function Login() {
 
+  const navigate = useNavigate();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() => {
+    return searchParams.get("expired") === "true" 
+      ? "Your session has expired. Please log in again." 
+      : "";
+  });
   const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const redirectTo = location.state?.from;
+  const redirectTo = location.state?.from || searchParams.get("from");
 
 
   const handleSubmit = async (event) => {
@@ -75,10 +80,14 @@ function Login() {
       // It is undefined when the request never reached the server.
       if (error.response) {
 
-        setError(
-          error.response.data?.message ||
-          `Login failed (status ${error.response.status})`
-        );
+        if (error.response.status === 401) {
+          setError("Invalid username or password");
+        } else {
+          setError(
+            error.response.data?.message ||
+            `Login failed (status ${error.response.status})`
+          );
+        }
 
       } else {
 
