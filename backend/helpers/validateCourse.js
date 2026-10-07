@@ -23,6 +23,7 @@ function validateCourse(course = {}) {
   const image = trimValue(course.image);
   const description = trimValue(course.description);
   const priceValue = trimValue(course.price);
+  const maxStudentsValue = course.max_students;
   const errors = {};
 
   if (typeof title !== "string" || !title) {
@@ -93,6 +94,14 @@ function validateCourse(course = {}) {
     errors.description = "Description cannot exceed 1000 characters";
   }
 
+  let max_students = null;
+  if (maxStudentsValue !== undefined && maxStudentsValue !== null && maxStudentsValue !== "") {
+    max_students = Number(maxStudentsValue);
+    if (!Number.isInteger(max_students) || max_students <= 0) {
+      errors.max_students = "Maximum students must be a positive integer";
+    }
+  }
+
   return {
     errors,
     data: {
@@ -103,6 +112,7 @@ function validateCourse(course = {}) {
       price: Number(priceValue),
       image: image || null,
       description: description || null,
+      max_students,
     },
   };
 }

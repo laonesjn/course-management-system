@@ -22,6 +22,7 @@ const EMPTY_COURSE = {
   price: "",
   image: "",
   description: "",
+  max_students: "",
 };
 
 const LEVEL_OPTIONS = ["Beginner", "Intermediate", "Advanced"];
@@ -215,6 +216,9 @@ function ManageCourses() {
       case "price":
         comparison = (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0);
         break;
+      case "max_students":
+        comparison = (a.max_students ?? Infinity) - (b.max_students ?? Infinity);
+        break;
       default:
         comparison = 0;
     }
@@ -293,6 +297,10 @@ function ManageCourses() {
       price: String(course.price ?? ""),
       image: course.image || "",
       description: course.description || "",
+      max_students:
+        course.max_students !== null && course.max_students !== undefined
+          ? String(course.max_students)
+          : "",
     });
 
     setFormError("");
@@ -344,6 +352,8 @@ function ManageCourses() {
     }
 
 
+    const maxStudentsVal = String(formData.max_students ?? "").trim();
+
     // The backend expects price to be a number
     const coursePayload = {
       title: formData.title.trim(),
@@ -353,6 +363,7 @@ function ManageCourses() {
       price: Number(formData.price),
       image: formData.image.trim(),
       description: formData.description.trim(),
+      max_students: maxStudentsVal !== "" ? Number(maxStudentsVal) : null,
     };
 
 
@@ -588,6 +599,25 @@ function ManageCourses() {
                   {fieldErrors.price && <p id="price-error" className="field-error">{fieldErrors.price}</p>}
                 </div>
 
+
+                <div className="form-group">
+                  <label htmlFor="max_students">Maximum Students</label>
+
+                  <input
+                    id="max_students"
+                    className={`input${fieldErrors.max_students ? " input-error" : ""}`}
+                    type="number"
+                    min="1"
+                    name="max_students"
+                    value={formData.max_students}
+                    onChange={handleChange}
+                    placeholder="Blank for Unlimited"
+                    aria-invalid={Boolean(fieldErrors.max_students)}
+                    aria-describedby={fieldErrors.max_students ? "max_students-error" : undefined}
+                  />
+                  {fieldErrors.max_students && <p id="max_students-error" className="field-error">{fieldErrors.max_students}</p>}
+                </div>
+
               </div>
 
 
@@ -772,6 +802,7 @@ function ManageCourses() {
                         {renderSortableHeader("level", "Level")}
                         {renderSortableHeader("duration", "Duration")}
                         {renderSortableHeader("price", "Price")}
+                        {renderSortableHeader("max_students", "Capacity")}
                         <th className="table-actions-column">Actions</th>
                       </tr>
                     </thead>
@@ -805,6 +836,12 @@ function ManageCourses() {
                           <td>{course.duration}</td>
 
                           <td>Rs. {course.price}</td>
+
+                          <td>
+                            {course.max_students !== null && course.max_students !== undefined
+                              ? `${course.enrolled_count ?? 0}/${course.max_students}`
+                              : `Unlimited (${course.enrolled_count ?? 0})`}
+                          </td>
 
                           <td>
                             <div className="table-actions">

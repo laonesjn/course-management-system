@@ -85,18 +85,25 @@ function CourseDetails() {
 
     } catch (error) {
 
-      // 409 = already enrolled. This is expected, not a crash.
+      const errorMsg = error.response?.data?.message || "";
+
+      // 409 = already enrolled OR course full.
       if (error.response?.status === 409) {
 
-        setError(
-          "You are already enrolled in this course. You can see it in My Enrollments."
-        );
-        setIsEnrolled(true);
+        if (errorMsg.toLowerCase().includes("full")) {
+          setError(errorMsg || "Course is full.");
+          setCourse((prev) => (prev ? { ...prev, is_full: true } : prev));
+        } else {
+          setError(
+            "You are already enrolled in this course. You can see it in My Enrollments."
+          );
+          setIsEnrolled(true);
+        }
 
       } else {
 
         setError(
-          error.response?.data?.message ||
+          errorMsg ||
           "Enrollment failed. Please try again."
         );
 
@@ -145,6 +152,12 @@ function CourseDetails() {
   }
 
 
+  const capacityText =
+    course.max_students !== null && course.max_students !== undefined
+      ? `${course.enrolled_count ?? 0}/${course.max_students} students`
+      : "Unlimited";
+
+
   return (
 
     <>
@@ -180,6 +193,7 @@ function CourseDetails() {
             <div className="course-card-tags">
               <span className="tag tag-category">{course.category}</span>
               <span className="tag tag-level">{course.level}</span>
+              {course.is_full && <span className="tag tag-full">Course Full</span>}
             </div>
 
 
@@ -209,6 +223,11 @@ function CourseDetails() {
               <div>
                 <dt>Price</dt>
                 <dd className="details-price">Rs. {course.price}</dd>
+              </div>
+
+              <div>
+                <dt>Capacity</dt>
+                <dd>{capacityText}</dd>
               </div>
 
             </dl>
@@ -255,6 +274,19 @@ function CourseDetails() {
                         <FaGraduationCap />
                         My Enrollments
                       </Link>
+                    </div>
+                  ) : course.is_full ? (
+                    <div className="notice error">
+                      <p>This course is currently full.</p>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-lg"
+                        disabled
+                        style={{ marginTop: '10px' }}
+                      >
+                        <FaShoppingCart />
+                        Course Full
+                      </button>
                     </div>
                   ) : (
                     <>

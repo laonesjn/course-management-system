@@ -1,63 +1,69 @@
 const Enrollment = require("../models/enrollmentModel");
 const Course = require("../models/courseModel");
 
+const db = require("../config/db");
+
 // Enroll in a course
 const enrollInCourse = async (req, res) => {
+  let connection;
   try {
     const { courseId } = req.body;
-
-    // Logged-in student's ID
     const studentId = req.user.id;
 
-    // Check course ID
     if (!courseId) {
-      return res.status(400).json({
-        message: "Course ID is required",
-      });
+      return res.status(400).json({ message: "Course ID is required" });
     }
 
-    // Check whether course exists
-    const course = await Course.getById(courseId);
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
-    if (!course) {
-      return res.status(404).json({
-        message: "Course not found",
-      });
-    }
-
-    // Check whether student is already enrolled
-    const existingEnrollment =
-      await Enrollment.findByStudentAndCourse(
-        studentId,
-        courseId
-      );
-
-    if (existingEnrollment) {
-      return res.status(409).json({
-        message: "You are already enrolled in this course",
-      });
-    }
-
-    // Create enrollment
-    const enrollmentId = await Enrollment.create(
-      studentId,
-      courseId
+    const [courses] = await connection.execute(
+      'SELECT *, CAST((SELECT COUNT(*) FROM enrollments WHERE course_id = ?) AS UNSIGNED) AS enrolled_count FROM courses WHERE id = ? FOR UPDATE',
+      [courseId, courseId]
     );
+
+    const course = courses[0];
+    if (!course) {
+      await connection.rollback();
+      connection.release();
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    const [existing] = await connection.execute(
+      'SELECT * FROM enrollments WHERE student_id = ? AND course_id = ?',
+      [studentId, courseId]
+    );
+    if (existing.length > 0) {
+      await connection.rollback();
+      connection.release();
+      return res.status(409).json({ message: "You are already enrolled in this course" });
+    }
+
+    if (course.max_students !== null && course.enrolled_count >= course.max_students) {
+      await connection.rollback();
+      connection.release();
+      return res.status(409).json({ message: "Course is full" });
+    }
+
+    const [result] = await connection.execute(
+      'INSERT INTO enrollments (student_id, course_id) VALUES (?, ?)',
+      [studentId, courseId]
+    );
+
+    await connection.commit();
+    connection.release();
 
     res.status(201).json({
       message: "Course enrollment successful",
-      enrollmentId,
+      enrollmentId: result.insertId,
     });
-
   } catch (error) {
-    console.error(
-      "Error enrolling in course:",
-      error.message
-    );
-
-    res.status(500).json({
-      message: "Internal server error",
-    });
+    if (connection) {
+      await connection.rollback();
+      connection.release();
+    }
+    console.error("Error enrolling in course:", error.message);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 

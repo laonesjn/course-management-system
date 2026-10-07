@@ -113,6 +113,18 @@ const updateCourse = async (req, res) => {
       });
     }
 
+    if (
+      validation.data.max_students !== null &&
+      validation.data.max_students < existingCourse.enrolled_count
+    ) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: {
+          max_students: `Cannot set maximum capacity (${validation.data.max_students}) lower than current enrollment count (${existingCourse.enrolled_count})`,
+        },
+      });
+    }
+
     const duplicateCourse = await Course.findByTitle(validation.data.title, id);
 
     if (duplicateCourse) {

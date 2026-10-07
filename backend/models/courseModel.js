@@ -16,21 +16,41 @@ const Course = {
   // Get all courses
   async getAll() {
     const [rows] = await db.execute(
-      "SELECT * FROM courses"
+      `SELECT 
+         c.*, 
+         CAST(COUNT(e.id) AS UNSIGNED) AS enrolled_count
+       FROM courses c
+       LEFT JOIN enrollments e ON c.id = e.course_id
+       GROUP BY c.id`
     );
 
-    return rows;
+    return rows.map(row => {
+      const is_full = row.max_students !== null ? row.enrolled_count >= row.max_students : false;
+      const seats_remaining = row.max_students !== null ? row.max_students - row.enrolled_count : null;
+      return { ...row, is_full: !!is_full, seats_remaining };
+    });
   },
 
 
   // Get one course
   async getById(id) {
     const [rows] = await db.execute(
-      "SELECT * FROM courses WHERE id = ?",
+      `SELECT 
+         c.*, 
+         CAST(COUNT(e.id) AS UNSIGNED) AS enrolled_count
+       FROM courses c
+       LEFT JOIN enrollments e ON c.id = e.course_id
+       WHERE c.id = ?
+       GROUP BY c.id`,
       [id]
     );
 
-    return rows[0];
+    if (rows.length === 0) return null;
+    const row = rows[0];
+    row.is_full = row.max_students !== null ? row.enrolled_count >= row.max_students : false;
+    row.seats_remaining = row.max_students !== null ? row.max_students - row.enrolled_count : null;
+    row.is_full = !!row.is_full;
+    return row;
   },
 
 
@@ -58,6 +78,7 @@ const Course = {
       price,
       image: rawImage,
       description: rawDescription,
+      max_students,
     } = course;
 
     const title = trimValue(rawTitle);
@@ -69,8 +90,8 @@ const Course = {
 
     const [result] = await db.execute(
       `INSERT INTO courses
-       (title, category, level, duration, price, image, description)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (title, category, level, duration, price, image, description, max_students)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
         category,
@@ -79,6 +100,7 @@ const Course = {
         price,
         image,
         description,
+        max_students,
       ]
     );
 
@@ -97,6 +119,7 @@ const Course = {
       price,
       image: rawImage,
       description: rawDescription,
+      max_students,
     } = course;
 
     const title = trimValue(rawTitle);
@@ -114,7 +137,8 @@ const Course = {
            duration = ?,
            price = ?,
            image = ?,
-           description = ?
+           description = ?,
+           max_students = ?
        WHERE id = ?`,
       [
         title,
@@ -124,6 +148,7 @@ const Course = {
         price,
         image,
         description,
+        max_students,
         id,
       ]
     );

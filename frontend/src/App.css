@@ -672,6 +672,11 @@ a:hover {
   color: #92400e;
 }
 
+.tag-full {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
 .role-badge {
   display: inline-block;
 
