@@ -21,6 +21,8 @@ function MyEnrollments() {
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [cancellingId, setCancellingId] = useState(null);
 
   // Sorting option state - Default is "newest" (Newest Enrolled)
   const [sortBy, setSortBy] = useState("newest");
@@ -45,6 +47,32 @@ function MyEnrollments() {
 
     getEnrollments();
   }, []);
+
+  // ---------- Cancel Enrollment ----------
+  const handleCancel = async (id) => {
+    if (!window.confirm("Are you sure you want to cancel this enrollment?")) {
+      return;
+    }
+
+    setCancellingId(id);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await api.delete(`/enrollments/my/${id}`);
+      setSuccess(response.data.message || "Enrollment cancelled successfully");
+      
+      // Update local state without reloading page
+      setEnrollments((prev) => prev.filter((env) => env.id !== id));
+    } catch (error) {
+      setError(
+        error.response?.data?.message ||
+        "Failed to cancel enrollment"
+      );
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   // Format "2026-09-21T10:15:00.000Z" into a readable date
   const formatDate = (value) => {
@@ -141,6 +169,11 @@ function MyEnrollments() {
         {/* ---------- Error ---------- */}
         {error && !loading && (
           <p className="error">{error}</p>
+        )}
+
+        {/* ---------- Success ---------- */}
+        {success && !loading && (
+          <p className="success">{success}</p>
         )}
 
         {/* ---------- Summary Header & Sorting Controls ---------- */}
@@ -263,6 +296,15 @@ function MyEnrollments() {
                       >
                         View Course
                       </Link>
+
+                      <button
+                        className="btn btn-danger btn-block"
+                        style={{ marginTop: "10px" }}
+                        disabled={cancellingId === enrollment.id}
+                        onClick={() => handleCancel(enrollment.id)}
+                      >
+                        {cancellingId === enrollment.id ? "Cancelling..." : "Cancel Enrollment"}
+                      </button>
                     </div>
                   </article>
                 ))}

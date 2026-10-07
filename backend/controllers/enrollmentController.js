@@ -179,10 +179,45 @@ const deleteEnrollment = async (req, res) => {
 };
 
 
+// Cancel student's own enrollment
+const cancelMyEnrollment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const studentId = req.user.id;
+
+    if (!id || isNaN(id)) {
+      return res.status(400).json({ message: "Invalid enrollment ID" });
+    }
+
+    const existing = await Enrollment.getById(id);
+    if (!existing) {
+      return res.status(404).json({ message: "Enrollment not found" });
+    }
+
+    if (existing.student_id !== studentId) {
+      return res.status(404).json({ message: "Enrollment not found" });
+    }
+
+    const result = await Enrollment.deleteByStudentAndId(id, studentId);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Enrollment not found" });
+    }
+
+    res.status(200).json({ message: "Enrollment cancelled successfully" });
+  } catch (error) {
+    console.error("Error cancelling enrollment:", error.message);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+
 module.exports = {
   enrollInCourse,
   getMyEnrollments,
   getCourseEnrollments,
   getAllEnrollments,
   deleteEnrollment,
+  cancelMyEnrollment,
 };

@@ -28,6 +28,15 @@ const Enrollment = {
     return rows[0];
   },
 
+  // Get enrollment by ID
+  async getById(id) {
+    const [rows] = await db.execute(
+      `SELECT * FROM enrollments WHERE id = ?`,
+      [id]
+    );
+    return rows[0];
+  },
+
 
   // Get all courses enrolled by a student
   async getByStudent(studentId) {
@@ -113,6 +122,17 @@ const Enrollment = {
       `DELETE FROM enrollments
        WHERE id = ?`,
       [id]
+    );
+
+    return result;
+  },
+
+  // Delete enrollment by student
+  async deleteByStudentAndId(id, studentId) {
+    const [result] = await db.execute(
+      `DELETE FROM enrollments
+       WHERE id = ? AND student_id = ?`,
+      [id, studentId]
     );
 
     return result;

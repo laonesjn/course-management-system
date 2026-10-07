@@ -20,6 +20,7 @@ function CourseDetails() {
   const [success, setSuccess] = useState("");
 
   const [enrolling, setEnrolling] = useState(false);
+  const [isEnrolled, setIsEnrolled] = useState(false);
 
 
   // Read the login state from localStorage.
@@ -39,6 +40,13 @@ function CourseDetails() {
 
         setCourse(response.data.course);
 
+        if (studentLoggedIn) {
+          const enrollResponse = await api.get('/enrollments/my');
+          const enrollments = enrollResponse.data.enrollments;
+          const enrolled = enrollments.some(e => String(e.course_id) === String(id));
+          setIsEnrolled(enrolled);
+        }
+
       } catch (error) {
 
         setError(
@@ -55,7 +63,7 @@ function CourseDetails() {
 
     getCourse();
 
-  }, [id]);
+  }, [id, studentLoggedIn]);
 
 
   // ---------- Enroll ----------
@@ -73,6 +81,7 @@ function CourseDetails() {
       });
 
       setSuccess(response.data.message);
+      setIsEnrolled(true);
 
     } catch (error) {
 
@@ -82,6 +91,7 @@ function CourseDetails() {
         setError(
           "You are already enrolled in this course. You can see it in My Enrollments."
         );
+        setIsEnrolled(true);
 
       } else {
 
@@ -238,20 +248,32 @@ function CourseDetails() {
               {/* Logged in as a student: show the Enroll button */}
               {studentLoggedIn && (
                 <>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-lg"
-                    onClick={handleEnroll}
-                    disabled={enrolling}
-                  >
-                    <FaShoppingCart />
-                    {enrolling ? "Enrolling..." : "Enroll Now"}
-                  </button>
+                  {isEnrolled ? (
+                    <div className="notice success">
+                      <p>You are enrolled in this course.</p>
+                      <Link to="/my-enrollments" className="btn btn-primary" style={{ marginTop: '10px' }}>
+                        <FaGraduationCap />
+                        My Enrollments
+                      </Link>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-lg"
+                        onClick={handleEnroll}
+                        disabled={enrolling}
+                      >
+                        <FaShoppingCart />
+                        {enrolling ? "Enrolling..." : "Enroll Now"}
+                      </button>
 
-                  <Link to="/my-enrollments" className="btn btn-outline">
-                    <FaGraduationCap />
-                    My Enrollments
-                  </Link>
+                      <Link to="/my-enrollments" className="btn btn-outline">
+                        <FaGraduationCap />
+                        My Enrollments
+                      </Link>
+                    </>
+                  )}
                 </>
               )}
 
