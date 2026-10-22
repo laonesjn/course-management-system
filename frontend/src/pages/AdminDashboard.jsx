@@ -20,6 +20,7 @@ function AdminDashboard() {
   });
 
   const [enrollments, setEnrollments] = useState([]);
+  const [totalEnrollments, setTotalEnrollments] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -43,7 +44,12 @@ function AdminDashboard() {
           studentCount: statsResponse.data.studentCount,
         });
 
-        setEnrollments(enrollmentsResponse.data.enrollments);
+        setEnrollments(enrollmentsResponse.data.enrollments || []);
+        setTotalEnrollments(
+          enrollmentsResponse.data.pagination?.total ??
+            enrollmentsResponse.data.enrollments?.length ??
+            0
+        );
 
       } catch (error) {
 
@@ -133,7 +139,7 @@ function AdminDashboard() {
 
           <div className="dashboard-card">
             <span className="dashboard-card-value">
-              {loading ? "..." : enrollments.length}
+              {loading ? "..." : totalEnrollments}
             </span>
             <span className="dashboard-card-label">Total Enrollments</span>
           </div>

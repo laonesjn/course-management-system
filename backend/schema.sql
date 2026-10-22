@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS users (
 
     full_name VARCHAR(100) NOT NULL,
 
-    role ENUM('admin', 'student') NOT NULL
+    role ENUM('admin', 'student') NOT NULL,
+
+    INDEX idx_users_full_name (full_name)
 );
 
 
@@ -35,7 +37,9 @@ CREATE TABLE IF NOT EXISTS courses (
 
     description TEXT,
 
-    max_students INT NULL
+    max_students INT NULL,
+
+    INDEX idx_courses_title (title)
 );
 
 
@@ -51,6 +55,9 @@ CREATE TABLE IF NOT EXISTS enrollments (
 
     -- A student cannot enroll in the same course twice
     UNIQUE (student_id, course_id),
+
+    INDEX idx_enrollments_enrolled_at (enrolled_at),
+    INDEX idx_enrollments_course_date (course_id, enrolled_at),
 
     -- Student account
     FOREIGN KEY (student_id)
