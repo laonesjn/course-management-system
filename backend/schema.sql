@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS users (
 
     role ENUM('admin', 'student') NOT NULL,
 
-    INDEX idx_users_full_name (full_name)
+    INDEX idx_users_full_name (full_name),
+    INDEX idx_users_role (role)
 );
 
 
@@ -39,7 +40,8 @@ CREATE TABLE IF NOT EXISTS courses (
 
     max_students INT NULL,
 
-    INDEX idx_courses_title (title)
+    INDEX idx_courses_title (title),
+    INDEX idx_courses_category (category)
 );
 
 
